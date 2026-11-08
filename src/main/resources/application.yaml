@@ -1,0 +1,27 @@
+spring:
+  application:
+    name: bookstore
+  datasource:
+    url: jdbc:postgresql://localhost:5432/bookstore
+    username: bookstore
+    password: bookstore
+    hikari:
+      maximum-pool-size: 10
+  flyway:
+    enabled: true
+    locations: classpath:/db/migration
+    validate-on-migrate: true
+  jooq:
+    sql-dialect: postgres
+  threads:
+    virtual:
+      enabled: true
+
+bookstore:
+  jooq:
+    slow-query-threshold: 200ms
+
+logging:
+  level:
+    org.jooq.LoggerListener: DEBUG
+    org.flywaydb: INFO
