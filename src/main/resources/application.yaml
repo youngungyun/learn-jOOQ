@@ -19,6 +19,7 @@ spring:
 
 bookstore:
   jooq:
+    # 11장의 느린 쿼리 로깅 기준
     slow-query-threshold: 200ms
 
 logging:
