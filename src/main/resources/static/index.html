@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Bookstore API 콘솔</title>
+    <!--
+      위치: src/main/resources/static/index.html  (커리큘럼 1-8)
+      ./gradlew bootRun 후 http://localhost:8080/ 으로 접속한다.
+      Spring Boot가 static/ 아래 파일을 그대로 서빙하므로 같은 origin → CORS 설정이 필요 없다.
+    -->
+    <style>
+        :root {
+            --bg: #f6f7f9; --panel: #ffffff; --line: #e3e6eb; --text: #1d2330; --muted: #6b7385;
+            --accent: #2f6fed; --accent-weak: #e8effd;
+            --get: #1f8a4c; --post: #2f6fed; --put: #a05a00; --patch: #7a45c9; --delete: #c83a3a;
+            --ok: #1f8a4c; --warn: #a05a00; --err: #c83a3a;
+            --code-bg: #f3f5f8; --k: #7a45c9; --s: #1f7a52; --n: #b3541e; --b: #2f6fed;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #12151b; --panel: #1a1e26; --line: #2b313c; --text: #e6e9ef; --muted: #8d95a6;
+                --accent: #6b9bff; --accent-weak: #1f2a40;
+                --get: #4cc583; --post: #6b9bff; --put: #e0a24a; --patch: #b48cf0; --delete: #f07878;
+                --ok: #4cc583; --warn: #e0a24a; --err: #f07878;
+                --code-bg: #141820; --k: #b48cf0; --s: #7fd3a6; --n: #f0a670; --b: #6b9bff;
+            }
+        }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: var(--bg); color: var(--text);
+            font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; }
+        code, pre, textarea, .mono { font-family: ui-monospace, "JetBrains Mono", "D2Coding", Menlo, Consolas, monospace; font-size: 13px; }
+        header { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+        header h1 { font-size: 15px; margin: 0; font-weight: 650; }
+        header .base { margin-left: auto; display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+        header .base input { width: 220px; }
+        .layout { display: grid; grid-template-columns: 290px 1fr; height: calc(100vh - 49px); }
+        nav { border-right: 1px solid var(--line); overflow-y: auto; background: var(--panel); }
+        nav .filter { position: sticky; top: 0; padding: 10px; background: var(--panel); border-bottom: 1px solid var(--line); }
+        nav .filter input { width: 100%; }
+        nav h2 { font-size: 11px; letter-spacing: .04em; color: var(--muted); margin: 14px 12px 4px; font-weight: 600; }
+        nav button.ep { display: flex; align-items: center; gap: 8px; width: 100%; border: 0; background: none; color: inherit;
+            padding: 6px 12px; text-align: left; cursor: pointer; font: inherit; }
+        nav button.ep:hover { background: var(--accent-weak); }
+        nav button.ep.active { background: var(--accent-weak); box-shadow: inset 3px 0 0 var(--accent); }
+        nav .path { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        nav .label { display: block; color: var(--muted); font-size: 11.5px; }
+        .m { display: inline-block; min-width: 50px; text-align: center; font-size: 10.5px; font-weight: 700; padding: 1px 0;
+            border-radius: 4px; color: #fff; flex: none; }
+        .m.GET { background: var(--get); } .m.POST { background: var(--post); } .m.PUT { background: var(--put); }
+        .m.PATCH { background: var(--patch); } .m.DELETE { background: var(--delete); }
+        main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); overflow: hidden; }
+        section { overflow-y: auto; padding: 16px 20px; }
+        section + section { border-left: 1px solid var(--line); }
+        .title { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+        .title code { font-size: 15px; font-weight: 600; word-break: break-all; }
+        .desc { color: var(--muted); margin: 0 0 16px; }
+        h3 { font-size: 12px; color: var(--muted); font-weight: 600; margin: 18px 0 6px; letter-spacing: .03em; }
+        .field { display: grid; grid-template-columns: 130px 1fr; gap: 8px; align-items: center; margin-bottom: 6px; }
+        .field label { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12.5px; }
+        .field label small { display: block; color: var(--muted); font-family: inherit; font-size: 11px; }
+        input, select, textarea { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font: inherit; }
+        input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+        textarea { width: 100%; min-height: 220px; resize: vertical; tab-size: 2; }
+        .actions { display: flex; gap: 8px; align-items: center; margin-top: 14px; flex-wrap: wrap; }
+        button.primary, button.ghost { border-radius: 6px; padding: 7px 14px; font: inherit; font-weight: 600; cursor: pointer; }
+        button.primary { background: var(--accent); color: #fff; border: 1px solid var(--accent); }
+        button.primary:disabled { opacity: .6; cursor: progress; }
+        button.ghost { background: none; color: var(--text); border: 1px solid var(--line); font-weight: 500; }
+        button.ghost:hover { border-color: var(--accent); }
+        .hint { color: var(--muted); font-size: 12px; }
+        pre { background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin: 0;
+            white-space: pre-wrap; word-break: break-word; }
+        .curl { font-size: 12px; }
+        .status { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+        .chip { font-weight: 700; padding: 2px 10px; border-radius: 999px; color: #fff; }
+        .chip.ok { background: var(--ok); } .chip.warn { background: var(--warn); } .chip.err { background: var(--err); }
+        .problem { border-left: 3px solid var(--err); padding: 8px 12px; margin-bottom: 10px; background: var(--code-bg); border-radius: 0 6px 6px 0; }
+        .problem b { display: block; }
+        .j-k { color: var(--k); } .j-s { color: var(--s); } .j-n { color: var(--n); } .j-b { color: var(--b); font-weight: 600; }
+        .empty { color: var(--muted); margin-top: 40px; text-align: center; }
+        .history { list-style: none; margin: 0; padding: 0; }
+        .history li { display: flex; gap: 8px; align-items: center; padding: 4px 0; border-bottom: 1px dashed var(--line); cursor: pointer; font-size: 12.5px; }
+        .history li:hover .mono { color: var(--accent); }
+        .history .code { width: 34px; font-weight: 700; }
+        @media (max-width: 960px) {
+            .layout { grid-template-columns: 1fr; height: auto; }
+            nav { max-height: 40vh; border-right: 0; border-bottom: 1px solid var(--line); }
+            main { grid-template-columns: 1fr; overflow: visible; }
+            section + section { border-left: 0; border-top: 1px solid var(--line); }
+            header .base input { width: 140px; }
+            header .base label { display: none; }
+            header h1 { white-space: nowrap; }
+        }
+    </style>
+</head>
+<body>
+<header>
+    <h1>📚 Bookstore API 콘솔</h1>
+    <div class="base">
+        <label for="base">Base URL</label>
+        <input id="base" class="mono" placeholder="(같은 서버)">
+    </div>
+</header>
+<div class="layout">
+    <nav>
+        <div class="filter"><input id="filter" placeholder="경로·설명 검색  ( / )"></div>
+        <div id="nav"></div>
+    </nav>
+    <main>
+        <section id="req"><p class="empty">왼쪽에서 API를 고르세요.</p></section>
+        <section id="res"><p class="empty">응답이 여기에 표시됩니다.</p></section>
+    </main>
+</div>
+
+<script>
+    /* ------------------------------------------------------------------
+     * 엔드포인트 카탈로그 (커리큘럼 각 장의 컨트롤러와 1:1)
+     *  - path 의 {id} 같은 부분은 경로 변수 입력칸이 된다. params 는 그 기본값.
+     *  - query: 쿼리 파라미터. options 가 있으면 select 로 표시.
+     *  - body : 요청 JSON 예시. 각 장 "실행 확인"과 시드 데이터(V2) 기준 값.
+     *  새 컨트롤러를 만들면 여기에 한 줄 추가하면 된다.
+     * ------------------------------------------------------------------ */
+    const CATALOG = [
+        { chapter: "4장 · 저자", items: [
+                { method: "GET", path: "/api/authors", label: "저자 목록 (이름 검색)",
+                    query: [{ name: "keyword", hint: "이름 부분 일치" }] },
+                { method: "GET", path: "/api/authors/{id}", label: "저자 단건" },
+                { method: "POST", path: "/api/authors", label: "저자 등록",
+                    body: { name: "정다은", birthYear: 1995 } },
+                { method: "PUT", path: "/api/authors/{id}", label: "저자 전체 수정", params: { id: "6" },
+                    body: { name: "정다은", birthYear: 1996 } },
+                { method: "PATCH", path: "/api/authors/{id}/name", label: "저자 이름 변경", params: { id: "6" },
+                    body: { name: "정다은(개정)" } },
+                { method: "DELETE", path: "/api/authors/{id}", label: "저자 삭제" },
+            ]},
+        { chapter: "5장 · 도서 조회", items: [
+                { method: "GET", path: "/api/books/{id}", label: "도서 요약" },
+                { method: "GET", path: "/api/books", label: "카테고리별 도서",
+                    query: [{ name: "category", required: true, value: "프로그래밍", hint: "카테고리 이름" }] },
+                { method: "GET", path: "/api/books/with-authors", label: "도서 + 저자 이름 목록" },
+            ]},
+        { chapter: "6장 · 도서 검색", items: [
+                { method: "GET", path: "/api/books/search", label: "검색 (오프셋 페이지)",
+                    query: [
+                        { name: "keyword" }, { name: "categoryId" }, { name: "minPrice" }, { name: "maxPrice" },
+                        { name: "tag" }, { name: "language", hint: "ko, en …" },
+                        { name: "inStock", options: ["", "true", "false"] },
+                        { name: "sort", options: ["NEWEST", "PRICE_ASC", "PRICE_DESC", "TITLE"] },
+                        { name: "page", value: "0" }, { name: "size", value: "20" },
+                    ] },
+                { method: "GET", path: "/api/books/scroll", label: "검색 (키셋 스크롤)",
+                    query: [
+                        { name: "keyword" }, { name: "categoryId" }, { name: "minPrice" }, { name: "maxPrice" },
+                        { name: "tag" }, { name: "language" }, { name: "inStock", options: ["", "true", "false"] },
+                        { name: "afterPrice", hint: "응답의 nextAfterPrice" }, { name: "afterId", hint: "응답의 nextAfterId" },
+                        { name: "size", value: "3" },
+                    ] },
+            ]},
+        { chapter: "7장 · 도서 상세", items: [
+                { method: "GET", path: "/api/books/{id}/detail", label: "도서 상세 (MULTISET)", params: { id: "2" } },
+            ]},
+        { chapter: "8장 · 쓰기·주문", items: [
+                { method: "POST", path: "/api/books", label: "도서 등록",
+                    body: { categoryId: 6, title: "테스트 주도 개발 입문", isbn: "9791100000080", price: 28000, stock: 5,
+                        publishedOn: "2026-11-01", tags: ["java", "testing"],
+                        attributes: { language: "ko", pages: 360 }, authorIds: [1, 2] } },
+                { method: "PATCH", path: "/api/books/{id}/price", label: "가격 변경 (낙관적 락)",
+                    body: { price: 31000, version: 1 }, note: "version 은 도서 상세 응답의 version 값" },
+                { method: "POST", path: "/api/orders", label: "주문 생성",
+                    body: { memberId: 1, items: [{ bookId: 3, quantity: 2 }, { bookId: 1, quantity: 1 }] } },
+                { method: "GET", path: "/api/orders/{id}", label: "주문 상세" },
+                { method: "GET", path: "/api/orders", label: "회원별 주문 목록",
+                    query: [{ name: "memberId", required: true, value: "1" }] },
+                { method: "POST", path: "/api/orders/{id}/pay", label: "주문 결제", params: { id: "8" } },
+                { method: "POST", path: "/api/orders/{id}/cancel", label: "주문 취소", params: { id: "8" } },
+            ]},
+        { chapter: "9장 · PostgreSQL 특화", items: [
+                { method: "PUT", path: "/api/members", label: "회원 업서트 (이메일 기준)",
+                    body: { email: "new@example.com", name: "신규회원" } },
+                { method: "GET", path: "/api/members", label: "회원 목록" },
+                { method: "GET", path: "/api/members/{id}", label: "회원 단건" },
+                { method: "POST", path: "/api/books/{id}/tags/{tag}", label: "태그 추가 (배열)", params: { tag: "Bestseller" } },
+                { method: "DELETE", path: "/api/books/{id}/tags/{tag}", label: "태그 제거 (배열)", params: { tag: "bestseller" } },
+                { method: "PATCH", path: "/api/books/{id}/attributes", label: "속성 병합 (JSONB ||)",
+                    body: { pages: 540 } },
+                { method: "GET", path: "/api/tags/stats", label: "태그별 도서 수 (unnest)" },
+            ]},
+        { chapter: "10장 · 통계", items: [
+                { method: "GET", path: "/api/stats/monthly-sales", label: "월별 매출 (윈도우 함수)" },
+                { method: "GET", path: "/api/stats/best-sellers", label: "카테고리별 순위 (CTE + rank)",
+                    query: [{ name: "top", value: "1", hint: "1~50, 기본 3" }] },
+                { method: "GET", path: "/api/stats/order-status", label: "상태별 주문 수 (enum)" },
+                { method: "GET", path: "/api/categories/tree", label: "카테고리 트리 (재귀 CTE)" },
+            ]},
+    ];
+
+    /* ---------- 상태 ---------- */
+    const $ = (s) => document.querySelector(s);
+    const store = {
+        get(k, d) { try { const v = localStorage.getItem("bsc." + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+        set(k, v) { try { localStorage.setItem("bsc." + k, JSON.stringify(v)); } catch {} },
+    };
+    let current = null;
+    let hist = store.get("history", []);
+    $("#base").value = store.get("base", "");
+    $("#base").addEventListener("change", (e) => store.set("base", e.target.value.trim()));
+
+    const keyOf = (ep) => ep.method + " " + ep.path;
+    const flat = CATALOG.flatMap((g) => g.items.map((ep) => ({ ...ep, chapter: g.chapter })));
+    const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+    /* ---------- 사이드바 ---------- */
+    function renderNav() {
+        const q = $("#filter").value.trim().toLowerCase();
+        $("#nav").innerHTML = CATALOG.map((g) => {
+            const items = g.items.filter((ep) => !q || (ep.path + ep.label + ep.method).toLowerCase().includes(q));
+            if (!items.length) return "";
+            return `<h2>${esc(g.chapter)}</h2>` + items.map((ep) => `
+      <button class="ep ${current && keyOf(current) === keyOf(ep) ? "active" : ""}" data-key="${esc(keyOf(ep))}">
+        <span class="m ${ep.method}">${ep.method}</span>
+        <span style="min-width:0"><span class="path mono">${esc(ep.path)}</span><span class="label">${esc(ep.label)}</span></span>
+      </button>`).join("");
+        }).join("");
+    }
+    $("#nav").addEventListener("click", (e) => {
+        const b = e.target.closest("button.ep"); if (!b) return;
+        select(flat.find((ep) => keyOf(ep) === b.dataset.key));
+    });
+    $("#filter").addEventListener("input", renderNav);
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "/" && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) { e.preventDefault(); $("#filter").focus(); }
+    });
+
+    /* ---------- 요청 패널 ---------- */
+    const pathVars = (p) => [...p.matchAll(/\{(\w+)\}/g)].map((m) => m[1]);
+    const saved = (ep) => store.get("form." + keyOf(ep), null);
+
+    function select(ep, prefill) {
+        current = ep;
+        renderNav();
+        const s = prefill || saved(ep) || {};
+        const vars = pathVars(ep.path);
+        $("#req").innerHTML = `
+    <div class="title"><span class="m ${ep.method}">${ep.method}</span><code>${esc(ep.path)}</code></div>
+    <p class="desc">${esc(ep.label)} · ${esc(ep.chapter)}${ep.note ? " — " + esc(ep.note) : ""}</p>
+    ${vars.length ? `<h3>경로 변수</h3>` + vars.map((v) => field("p", v, s.p?.[v] ?? ep.params?.[v] ?? "1", { required: true })).join("") : ""}
+    ${ep.query ? `<h3>쿼리 파라미터</h3>` + ep.query.map((q) => field("q", q.name, s.q?.[q.name] ?? q.value ?? "", q)).join("") : ""}
+    ${ep.body ? `<h3>요청 본문 (JSON)</h3><textarea id="body" spellcheck="false">${esc(s.body ?? JSON.stringify(ep.body, null, 2))}</textarea>` : ""}
+    <div class="actions">
+      <button class="primary" id="send">보내기</button>
+      <button class="ghost" id="reset">초기화</button>
+      <span class="hint">Ctrl/⌘ + Enter</span>
+    </div>
+    <h3>미리보기</h3>
+    <pre class="curl mono" id="curl"></pre>
+    <h3>최근 요청</h3>
+    <ul class="history" id="history"></ul>`;
+        $("#req").oninput = () => { persist(); updateCurl(); };
+        $("#send").onclick = send;
+        $("#reset").onclick = () => { store.set("form." + keyOf(ep), null); select(ep, {}); };
+        updateCurl();
+        renderHistory();
+    }
+
+    function field(kind, name, value, opt = {}) {
+        const id = `${kind}-${name}`;
+        const label = `<label for="${id}">${esc(name)}${opt.required ? " *" : ""}${opt.hint ? `<small>${esc(opt.hint)}</small>` : ""}</label>`;
+        const input = opt.options
+            ? `<select id="${id}" data-kind="${kind}" data-name="${esc(name)}">${opt.options.map((o) =>
+                `<option value="${esc(o)}" ${o === value ? "selected" : ""}>${o === "" ? "(지정 안 함)" : esc(o)}</option>`).join("")}</select>`
+            : `<input id="${id}" class="mono" data-kind="${kind}" data-name="${esc(name)}" value="${esc(value)}">`;
+        return `<div class="field">${label}${input}</div>`;
+    }
+
+    function readForm() {
+        const f = { p: {}, q: {} };
+        document.querySelectorAll("#req [data-kind]").forEach((el) => { f[el.dataset.kind][el.dataset.name] = el.value; });
+        const b = $("#body"); if (b) f.body = b.value;
+        return f;
+    }
+    function persist() { if (current) store.set("form." + keyOf(current), readForm()); }
+
+    function buildUrl(ep, f) {
+        let path = ep.path.replace(/\{(\w+)\}/g, (_, v) => encodeURIComponent(f.p[v] ?? ""));
+        const qs = new URLSearchParams();
+        Object.entries(f.q).forEach(([k, v]) => { if (v !== "") qs.append(k, v); });
+        const s = qs.toString();
+        return ($("#base").value.trim().replace(/\/$/, "")) + path + (s ? "?" + s : "");
+    }
+
+    function updateCurl() {
+        const f = readForm();
+        const url = buildUrl(current, f);
+        const abs = /^https?:/.test(url) ? url : location.origin + url;
+        let c = `curl -i -X ${current.method} '${abs}'`;
+        if (f.body != null) {
+            let body = f.body;
+            try { body = JSON.stringify(JSON.parse(f.body)); } catch {}
+            c += ` \\\n  -H 'Content-Type: application/json' \\\n  -d '${body.replace(/'/g, "'\\''")}'`;
+        }
+        $("#curl").textContent = c;
+    }
+
+    /* ---------- 전송 ---------- */
+    async function send() {
+        const ep = current, f = readForm();
+        const url = buildUrl(ep, f);
+        const init = { method: ep.method, headers: { Accept: "application/json" } };
+        if (f.body != null) {
+            try { JSON.parse(f.body); } catch (e) { return showLocalError("요청 본문이 올바른 JSON이 아닙니다", e.message); }
+            init.headers["Content-Type"] = "application/json";
+            init.body = f.body;
+        }
+        const btn = $("#send"); btn.disabled = true; btn.textContent = "보내는 중…";
+        const t0 = performance.now();
+        try {
+            const res = await fetch(url, init);
+            const ms = Math.round(performance.now() - t0);
+            const text = await res.text();
+            let json = null; try { json = text ? JSON.parse(text) : null; } catch {}
+            showResponse(ep, res, ms, text, json);
+            hist.unshift({ key: keyOf(ep), url, status: res.status, form: f, at: Date.now() });
+            hist = hist.slice(0, 30); store.set("history", hist); renderHistory();
+        } catch (e) {
+            showLocalError("서버에 연결하지 못했습니다",
+                `${e.message}\n\n애플리케이션이 실행 중인지 확인하세요 (./gradlew bootRun).\nBase URL을 다른 서버로 바꿨다면 그 서버에 CORS 설정이 필요합니다.`);
+        } finally { btn.disabled = false; btn.textContent = "보내기"; }
+    }
+
+    function showResponse(ep, res, ms, text, json) {
+        const cls = res.status < 300 ? "ok" : res.status < 500 ? "warn" : "err";
+        const loc = res.headers.get("Location");
+        const isProblem = (res.headers.get("Content-Type") || "").includes("problem+json") || (json && json.title && json.status);
+        let extra = "";
+        if (ep.path === "/api/books/scroll" && json && json.hasNext) {
+            extra = `<button class="ghost" id="nextScroll">다음 페이지 이어서 →</button>`;
+        }
+        $("#res").innerHTML = `
+    <div class="status">
+      <span class="chip ${cls}">${res.status} ${esc(res.statusText || "")}</span>
+      <span class="hint">${ms} ms · ${new Blob([text]).size.toLocaleString()} bytes</span>
+      ${Array.isArray(json) ? `<span class="hint">· ${json.length}건</span>` : ""}
+      ${json && json.totalElements != null ? `<span class="hint">· 전체 ${json.totalElements}건 (${json.page + 1}/${json.totalPages || 1} 페이지)</span>` : ""}
+      ${extra}
+    </div>
+    ${loc ? `<p class="hint">Location: <code>${esc(loc)}</code></p>` : ""}
+    ${isProblem && res.status >= 400 ? `<div class="problem"><b>${esc(json.title || "오류")}</b>${esc(json.detail || "")}</div>` : ""}
+    ${text ? `<pre class="mono">${json !== null ? highlight(json) : esc(text)}</pre>` : `<p class="hint">(본문 없음)</p>`}`;
+        const n = $("#nextScroll");
+        if (n) n.onclick = () => {
+            const f = readForm();
+            f.q.afterPrice = String(json.nextAfterPrice); f.q.afterId = String(json.nextAfterId);
+            store.set("form." + keyOf(ep), f); select(ep, f); send();
+        };
+    }
+
+    function showLocalError(title, detail) {
+        $("#res").innerHTML = `<div class="problem"><b>${esc(title)}</b><span style="white-space:pre-wrap">${esc(detail)}</span></div>`;
+    }
+
+    function highlight(obj) {
+        return esc(JSON.stringify(obj, null, 2)).replace(
+            /(&quot;(?:[^&]|&(?!quot;))*?&quot;)(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g,
+            (m, str, colon, lit) => str ? `<span class="${colon ? "j-k" : "j-s"}">${str}</span>${colon || ""}`
+                : lit ? `<span class="j-b">${m}</span>` : `<span class="j-n">${m}</span>`);
+    }
+
+    /* ---------- 히스토리 ---------- */
+    function renderHistory() {
+        const el = $("#history"); if (!el) return;
+        if (!hist.length) { el.innerHTML = `<li class="hint" style="cursor:default">아직 없음</li>`; return; }
+        el.innerHTML = hist.slice(0, 12).map((h, i) => {
+            const [m] = h.key.split(" ");
+            const c = h.status < 300 ? "var(--ok)" : h.status < 500 ? "var(--warn)" : "var(--err)";
+            return `<li data-i="${i}"><span class="m ${m}">${m}</span><span class="code" style="color:${c}">${h.status}</span><span class="mono">${esc(h.url)}</span></li>`;
+        }).join("");
+        el.onclick = (e) => {
+            const li = e.target.closest("li[data-i]"); if (!li) return;
+            const h = hist[+li.dataset.i]; const ep = flat.find((x) => keyOf(x) === h.key);
+            if (ep) { store.set("form." + h.key, h.form); select(ep, h.form); }
+        };
+    }
+
+    document.addEventListener("keydown", (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && current) { e.preventDefault(); send(); }
+    });
+
+    renderNav();
+    select(flat.find((ep) => keyOf(ep) === store.get("last", "GET /api/authors")) || flat[0]);
+    const _select = select;
+    select = (ep, p) => { store.set("last", keyOf(ep)); _select(ep, p); };
+</script>
+</body>
+</html>
