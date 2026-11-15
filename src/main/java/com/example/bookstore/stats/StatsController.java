@@ -27,7 +27,7 @@ public class StatsController {
 
 	@GetMapping("/best-sellers")
 	public List<BestSeller> bestSellers(@RequestParam(defaultValue = "3") int top) {
-		return statsRepository.bestSellerByCategory(
+		return statsRepository.bestSellersByCategory(
 			Math.clamp(top, 1, 50)
 		);
 	}

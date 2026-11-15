@@ -63,7 +63,7 @@ public class StatsRepository {
 	 * 2) ranked: 카테고리 안에서 판매 수량 순위(rank)
 	 * 마지막에 rank <= N으로 거른다.
 	 */
-	public List<BestSeller> bestSellerByCategory(int topN) {
+	public List<BestSeller> bestSellersByCategory(int topN) {
 		var sales = name("book_sales").fields("book_id", "sold_qty")
 			.as(select(ORDER_ITEM.BOOK_ID, sum(ORDER_ITEM.QUANTITY))
 			.from(ORDER_ITEM)
